@@ -180,10 +180,7 @@ class HierarchyMagic(Magics):
         else:
             raise ValueError(
                 "Given object {0} is not a class or an instance".format(obj))
-        classpath = self.shell.display_formatter.format(
-            objclass, ['text/plain'])['text/plain']
-        (dirpath, basepath) = classpath.rsplit('.', 1)
-        ig = InheritanceGraph([basepath], dirpath)
+        ig = InheritanceGraph([objclass.__name__], objclass.__module__)
         code = ig.generate_dot('inheritance_graph',
                                graph_attrs={'rankdir': args.rankdir,
                                             'size': '"{0}"'.format(args.size)})
