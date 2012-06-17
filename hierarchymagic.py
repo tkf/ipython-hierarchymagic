@@ -56,9 +56,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License for Sphinx
 ------------------
 
-`run_dot` function in this extension heavily based on Sphinx code
-`sphinx.ext.graphviz.render_dot`.  Copyright notice for Sphinx can
-be found below.
+`run_dot` function and `HierarchyMagic._class_name` method in this
+extension heavily based on Sphinx code `sphinx.ext.graphviz.render_dot`
+and `InheritanceGraph.class_name`.
+
+Copyright notice for Sphinx can be found below.
 
 Copyright (c) 2007-2011 by the Sphinx team (see AUTHORS file).
 All rights reserved.
@@ -218,29 +220,51 @@ class HierarchyMagic(Magics):
         help='width of each nodes in character length (default: %(default)s)',
     )
     @argument(
-        'object',
-        help='Class hierarchy of this class or object will be drawn',
+        'object', nargs='+',
+        help='Class hierarchy of these classes or objects will be drawn',
     )
     @line_magic
     def hierarchy(self, parameter_s=''):
         """Draw hierarchy of a given class."""
         args = parse_argstring(self.hierarchy, parameter_s)
-        obj = self.shell.ev(args.object)
-        if isinstance(obj, type):
-            objclass = obj
-        elif hasattr(obj, "__class__"):
-            objclass = obj.__class__
-        else:
-            raise ValueError(
-                "Given object {0} is not a class or an instance".format(obj))
+        objects = map(self.shell.ev, args.object)
+        clslist = map(self._object_to_class, objects)
+        namelist = map(self._class_name, clslist)
         ig = FoldedInheritanceGraph(
-            [objclass.__name__], objclass.__module__,
+            namelist, '',
             width=args.name_width)
         code = ig.generate_dot('inheritance_graph',
                                graph_attrs={'rankdir': args.rankdir,
                                             'size': '"{0}"'.format(args.size)})
         stdout = run_dot(code, format='png')
         display_png(stdout, raw=True)
+
+    @staticmethod
+    def _object_to_class(obj):
+        if isinstance(obj, type):
+            return obj
+        elif hasattr(obj, "__class__"):
+            return obj.__class__
+        else:
+            raise ValueError(
+                "Given object {0} is not a class or an instance".format(obj))
+
+    @staticmethod
+    def _class_name(cls, parts=0):
+        """Given a class object, return a fully-qualified name.
+
+        This works for things I've tested in matplotlib so far, but may not be
+        completely general.
+        """
+        module = cls.__module__
+        if module == '__builtin__':
+            fullname = cls.__name__
+        else:
+            fullname = '%s.%s' % (module, cls.__name__)
+        if parts == 0:
+            return fullname
+        name_parts = fullname.split('.')
+        return '.'.join(name_parts[-parts:])
 
 
 def load_ipython_extension(ip):
