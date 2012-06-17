@@ -152,6 +152,55 @@ class GraphvizMagic(Magics):
             display_svg(image, raw=True)
 
 
+class FoldedInheritanceGraph(InheritanceGraph):
+
+    def __init__(self, *args, **kwds):
+        self._width = kwds.pop('width', 40)
+        super(FoldedInheritanceGraph, self).__init__(*args, **kwds)
+
+    @staticmethod
+    def _foldclassname(classname, width):
+        r"""
+        Split `classname` in newlines if the width is wider than `width`.
+
+        >>> fold = FoldedInheritanceGraph._foldclassname
+        >>> fold('aaa.bbb.ccc', 7)
+        'aaa.bbb\\n.ccc'
+        >>> fold('aaa.bbb.ccc', 3)
+        'aaa\\n.bbb\\n.ccc'
+        >>> identity = lambda x, y: ''.join(fold(x, y).split('\\n'))
+        >>> identity('aaa.bbb.ccc', 7)
+        'aaa.bbb.ccc'
+        >>> identity('aaa.bbb.ccc', 3)
+        'aaa.bbb.ccc'
+
+        """
+        parts = classname.split('.')
+        lines = []
+        chunk = [parts.pop(0)]
+        for p in parts:
+            if len('.'.join(chunk + [p])) > width:
+                lines.append('.'.join(chunk))
+                chunk = [p]
+            else:
+                chunk.append(p)
+        lines.append('.'.join(chunk))
+        return '\\n.'.join(lines)
+
+    def _class_info(self, *args, **kwds):
+        class_info = super(FoldedInheritanceGraph, self) \
+            ._class_info(*args, **kwds)
+        width = self._width
+
+        def fold(elem):
+            (nodename, fullname, baselist) = elem
+            nodename = self._foldclassname(nodename, width)
+            baselist = [self._foldclassname(b, width) for b in baselist]
+            return (nodename, fullname, baselist)
+
+        return map(fold, class_info)
+
+
 @magics_class
 class HierarchyMagic(Magics):
 
@@ -163,6 +212,10 @@ class HierarchyMagic(Magics):
     @argument(
         '-s', '--size', default='5.0, 12.0',
         help='size of the generated figure (default: %(default)s)',
+    )
+    @argument(
+        '-w', '--name-width', default=40, type=int,
+        help='width of each nodes in character length (default: %(default)s)',
     )
     @argument(
         'object',
@@ -180,7 +233,9 @@ class HierarchyMagic(Magics):
         else:
             raise ValueError(
                 "Given object {0} is not a class or an instance".format(obj))
-        ig = InheritanceGraph([objclass.__name__], objclass.__module__)
+        ig = FoldedInheritanceGraph(
+            [objclass.__name__], objclass.__module__,
+            width=args.name_width)
         code = ig.generate_dot('inheritance_graph',
                                graph_attrs={'rankdir': args.rankdir,
                                             'size': '"{0}"'.format(args.size)})
