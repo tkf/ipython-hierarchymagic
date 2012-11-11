@@ -100,11 +100,19 @@ from sphinx.ext.inheritance_diagram import InheritanceGraph
 
 def run_dot(code, options=[], format='png'):
     # mostly copied from sphinx.ext.graphviz.render_dot
+    import os
     from subprocess import Popen, PIPE
     from sphinx.util.osutil import EPIPE, EINVAL
 
     dot_args = ['dot'] + options + ['-T', format]
-    p = Popen(dot_args, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    if os.name == 'nt':
+        # Avoid opening shell window.
+        # * https://github.com/tkf/ipython-hierarchymagic/issues/1
+        # * http://stackoverflow.com/a/2935727/727827
+        p = Popen(dot_args, stdout=PIPE, stdin=PIPE, stderr=PIPE,
+                  creationflags=0x08000000)
+    else:
+        p = Popen(dot_args, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     wentwrong = False
     try:
         # Graphviz may close standard input when an error occurs,
