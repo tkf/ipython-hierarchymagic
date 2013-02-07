@@ -117,12 +117,12 @@ def run_dot(code, options=[], format='png'):
     try:
         # Graphviz may close standard input when an error occurs,
         # resulting in a broken pipe on communicate()
-        stdout, stderr = p.communicate(code)
-    except (OSError, IOError), err:
+        stdout, stderr = p.communicate(code.encode("utf-8"))
+    except (OSError, IOError) as err:
         if err.errno != EPIPE:
             raise
         wentwrong = True
-    except IOError, err:
+    except IOError as err:
         if err.errno != EINVAL:
             raise
         wentwrong = True
